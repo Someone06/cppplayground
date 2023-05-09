@@ -5,7 +5,7 @@
 
 template<std::ranges::random_access_range R>
     requires std::same_as<std::ranges::range_value_t<R>, std::string_view>
-[[nodiscard]] constexpr std::uint8_t newMain([[maybe_unused]] R args) noexcept;
+[[nodiscard]] std::uint8_t newMain([[maybe_unused]] R args) noexcept;
 
 int main(const int argc, char const * const * const argv) {
     auto toStringView = [](auto s) {return std::string_view{s};};
@@ -19,6 +19,6 @@ enum class ExitCodes : ExitCode_t {Success = EXIT_SUCCESS, Failure = EXIT_FAILUR
 
 template<std::ranges::random_access_range R>
     requires std::same_as<std::ranges::range_value_t<R>, std::string_view>
-[[nodiscard]] constexpr std::uint8_t newMain([[maybe_unused]] R args) noexcept {
+[[nodiscard]] std::uint8_t newMain([[maybe_unused]] R args) noexcept {
     return *ExitCode(ExitCodes::Success);
 }

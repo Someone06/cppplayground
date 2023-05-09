@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -xe
+
+if [ -d "cmake-build-debug" ]; then
+  echo "$DIRECTORY does exist."
+  return
+fi
+
+export CC=/usr/lib/llvm/15/bin/clang
+export CXX=/usr/lib/llvm/15/bin/clang++
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build-debug -D_CMAKE_TOOLCHAIN_PREFIX=llvm-
