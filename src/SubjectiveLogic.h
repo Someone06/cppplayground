@@ -57,51 +57,71 @@ private:
     F apriori{};
 };
 
+template<typename R>
+concept OpinionView = std::ranges::contiguous_range<R>
+                        && std::ranges::sized_range<R>
+                        && std::ranges::view<R>
+                        && plain_floating_point<std::ranges::range_value_t<R>>;
+
+template<plain_floating_point F, std::size_t Size = std::dynamic_extent>
+requires (Size >= 2)
+class MultinomialOpinionBase {
+protected:
+    constexpr MultinomialOpinionBase(std::size_t size, F uncertainty) : beliefsAndApriories{}, uncertainty{uncertainty} {
+        if (size != Size) throw std::invalid_argument("Size missmatch.");
+    }
+
+    std::array<F, 2*Size> beliefsAndApriories;
+    F uncertainty;
+};
 
 template<plain_floating_point F>
-class MultinomialOpinion final {
+class MultinomialOpinionBase<F, std::dynamic_extent> {
+protected:
+    constexpr MultinomialOpinionBase(std::size_t size, F uncertainty) : beliefsAndApriories{std::vector<F>(2*size)}, uncertainty{uncertainty} {
+        if(size < 2) throw std::invalid_argument("Require size of at least 2.");
+    }
+
+    std::vector<F> beliefsAndApriories;
+    F uncertainty;
+};
+
+template<plain_floating_point F, std::size_t Size>
+requires (Size >= 2)
+class MultinomialOpinion final : private MultinomialOpinionBase<F, Size> {
 public:
     template<std::ranges::input_range R>
-        requires std::ranges::sized_range<R> && std::same_as<std::ranges::range_value_t<R>, F>
-    [[nodiscard]] constexpr MultinomialOpinion(const R &beliefs, F uncertainty, const R &apriories) : beliefsAndApriories{std::vector<F>()}, uncertainty{uncertainty} {
+        requires std::ranges::view<R> && std::ranges::sized_range<R> && std::same_as<std::ranges::range_value_t<R>, F>
+    [[nodiscard]] constexpr MultinomialOpinion(const R beliefs, F uncertainty, const R apriories) : MultinomialOpinionBase<F, Size>{std::ranges::size(beliefs), uncertainty} {
         if (std::ranges::size(beliefs) != std::ranges::size(apriories))
             throw std::invalid_argument("Number of beliefs and number of apriories must be equal.");
 
-        if (std::ranges::size(beliefs) < 2)
-            throw std::invalid_argument("Require at least two beliefs and apriories.");
-
-        std::array combined{std::ranges::ref_view(beliefs), std::ranges::ref_view(apriories)};
+        std::array combined{std::move(beliefs), std::move(apriories)};
         auto joined{std::ranges::views::join(std::move(combined))};
-        std::vector<F> vec{std::begin(joined), std::end(joined)};
-        std::swap(vec, beliefsAndApriories);
+        std::ranges::copy(joined, std::begin(MultinomialOpinionBase<F, Size>::beliefsAndApriories));
 
         if (!verifySelf())
             throw std::invalid_argument("Invariant for multinomial opinion does not hold.");
     }
 
-    using size_type = typename std::vector<F>::size_type;
-
-    [[nodiscard]] constexpr auto getBeliefs() const {
-        return left_half(beliefsAndApriories);
+    [[nodiscard]] constexpr OpinionView auto getBeliefs() const {
+        return left_half(MultinomialOpinionBase<F, Size>::beliefsAndApriories);
     }
 
-    [[nodiscard]] constexpr auto getApriories() const {
-        return right_half(beliefsAndApriories);
+    [[nodiscard]] constexpr OpinionView auto getApriories() const {
+        return right_half(MultinomialOpinionBase<F, Size>::beliefsAndApriories);
     }
 
-    [[nodiscard]] inline constexpr size_type size() const {
-        return beliefsAndApriories.size() / 2;
-    }
-    friend std::ostream &operator<<(std::ostream &os, const MultinomialOpinion &opinion) {
-        return (os << "MultinomialOpinion{beliefsAndApriories: "
-                   << opinion.beliefsAndApriories
-                   << ", uncertainty: "
-                   << opinion.uncertainty << "}");
+    [[nodiscard]] inline constexpr std::size_t size() const {
+        if constexpr (Size == std::dynamic_extent)
+            return std::size(MultinomialOpinionBase<F, Size>::beliefsAndPrioiries);
+
+        return Size;
     }
 
 private:
     [[nodiscard]] constexpr bool verifySelf() const {
-        bool in_range{std::ranges::all_of(beliefsAndApriories, is_between_zero_and_one_inclusive<F>)};
+        bool in_range{std::ranges::all_of(MultinomialOpinionBase<F, Size>::beliefsAndApriories, is_between_zero_and_one_inclusive<F>)};
 
         auto beliefs{getBeliefs()};
         F belief_sum{std::accumulate(std::begin(beliefs), std::end(beliefs), 0.0)};
@@ -109,10 +129,12 @@ private:
         auto apriories{getApriories()};
         F apriories_sum{std::accumulate(std::begin(apriories), std::end(apriories), 0.0)};
 
-        return in_range && is_approx_one(belief_sum + uncertainty) && is_approx_one(apriories_sum);
+        return in_range && is_approx_one(belief_sum + MultinomialOpinionBase<F, Size>::uncertainty) && is_approx_one(apriories_sum);
     }
-
-    std::vector<F> beliefsAndApriories{};
-    F uncertainty{};
 };
+
+std::array a {0.5, 0.5};
+MultinomialOpinion<double, 2> m {std::ranges::ref_view(a), 0.0, std::ranges::ref_view(a)};
+MultinomialOpinion<double, std::dynamic_extent> m2 {std::ranges::ref_view(a), 0.0, std::ranges::ref_view(a)};
+
 #endif
