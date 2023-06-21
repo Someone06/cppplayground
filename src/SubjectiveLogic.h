@@ -1,14 +1,14 @@
 #ifndef CPPPLAYGROUND_SUBJECTIVELOGIC_H
 #define CPPPLAYGROUND_SUBJECTIVELOGIC_H
 
-#include<algorithm>
+#include <algorithm>
 #include <concepts>
-#include<cstddef>
+#include <cstddef>
 #include <iostream>
 #include <numeric>
 #include <ranges>
-#include<span>
-#include<stdexcept>
+#include <span>
+#include <stdexcept>
 
 #include "rangeHelper.h"
 #include "floatingPointHelper.h"
@@ -39,13 +39,6 @@ public:
         return apriori;
     }
 
-    constexpr friend std::ostream &operator<<(std::ostream &os, const BinomialOpinion &opinion) {
-        return (os << "BinomialOpinion{belief: " << opinion.belief
-                   << ", disbelief: " << opinion.disbelief
-                   << ", uncertainty: " << opinion.uncertainty
-                   << ", apriori: " << opinion.apriori << "}");
-    }
-
 private:
     [[nodiscard]] constexpr bool verifySelf() const {
         std::array components{belief, disbelief, uncertainty, apriori};
@@ -62,6 +55,14 @@ private:
 };
 
 
+template<plain_floating_point F>
+constexpr std::ostream &operator<<(std::ostream &os, const BinomialOpinion<F>& opinion) {
+    return (os << "BinomialOpinion{belief: " << opinion.belief
+               << ", disbelief: " << opinion.disbelief
+               << ", uncertainty: " << opinion.uncertainty
+               << ", apriori: " << opinion.apriori << "}");
+}
+
 
 template<plain_floating_point F, std::size_t Size>
 requires (Size >= 2)
@@ -69,47 +70,39 @@ class MultinomialOpinion final {
 public:
     template<std::ranges::input_range R>
         requires std::ranges::view<R> && std::ranges::sized_range<R> && std::same_as<std::ranges::range_value_t<R>, F>
-    [[nodiscard]] constexpr MultinomialOpinion(const R beliefs, F uncertainty, const R apriories) : beliefsAndApriories{make_FlexArray<F, Double>(std::ranges::size(beliefs) * 2)}, uncertainty{uncertainty}  {
+    [[nodiscard]] constexpr MultinomialOpinion(const R beliefs, F uncertainty, const R apriories) : beliefsAndApriories{make_FlexArray<F, DoubleSize>(std::ranges::size(beliefs) * 2)}, uncertainty{uncertainty}  {
         if (std::ranges::size(beliefs) != std::ranges::size(apriories))
             throw std::invalid_argument("Number of beliefs and number of apriories must be equal.");
 
-        if (Size == std::dynamic_extent && Size < 2)
+        if (Size == std::dynamic_extent && std::ranges::size(beliefs) < 2)
             throw std::invalid_argument("Require a size of at least 2.");
 
         std::array combined{std::move(beliefs), std::move(apriories)};
-        auto joined{std::ranges::views::join(std::move(combined))};
-        std::ranges::copy(joined, std::begin(beliefsAndApriories.getMut()));
+        std::ranges::copy(std::ranges::ref_view(combined) | std::views::join,
+                          std::begin(beliefsAndApriories.getMut()));
 
         if (!verifySelf())
             throw std::invalid_argument("Invariant for multinomial opinion does not hold.");
     }
 
     [[nodiscard]] constexpr std::span<const F, Size>  getBeliefs() const {
-        if constexpr (Size == std::dynamic_extent) {
-            std::span<const F, std::dynamic_extent> s {beliefsAndApriories.get()};
-            std::size_t sz {s.size() / 2};
-            return s.subspan(0, sz);
-        } else {
-            std::span<const F, 2 * Size> s{beliefsAndApriories.get()};
-            std::span<const F, Size> result{s.subspan(0, Size)};
-            return result;
-        }
+        return getComponent<Component::Beliefs>();
     }
 
     [[nodiscard]] constexpr std::span<const F, Size>  getApriories() const {
-        if constexpr (Size == std::dynamic_extent) {
-            std::span<const F, std::dynamic_extent> s {beliefsAndApriories.get()};
-            std::size_t sz {s.size() / 2};
-            return s.subspan(sz, sz);
-        } else {
-            std::span<const F, 2 * Size> s{beliefsAndApriories.get()};
-            std::span<const F, Size> result{s.subspan(Size, Size)};
-            return result;
-        }
+        return getComponent<Component::Apriories>();
+    }
+
+    [[nodiscard]] constexpr F getUncertainty() const {
+        return uncertainty;
+    }
+
+    [[nodiscard]] inline constexpr bool is_dynamic_sized() const {
+        return Size == std::dynamic_extent;
     }
 
     [[nodiscard]] inline constexpr std::size_t size() const {
-        if constexpr (Size == std::dynamic_extent) {
+        if constexpr (is_dynamic_sized()) {
             return beliefsAndApriories.get().size() / 2;
         } else {
             return Size;
@@ -117,27 +110,64 @@ public:
     }
 
 private:
+    enum class Component {Beliefs, Apriories};
+
+    template<Component c>
+    [[nodiscard]] inline constexpr std::span<const F, Size> getComponent() const {
+        if constexpr (Size == std::dynamic_extent) {
+            std::span<const F, std::dynamic_extent> s {beliefsAndApriories.get()};
+            std::size_t sz {s.size() / 2};
+            std::size_t begin = c == Component::Beliefs ? 0 : sz;
+            return s.subspan(begin, sz);
+        } else {
+            std::span<const F, 2 * Size> s{beliefsAndApriories.get()};
+            std::size_t begin = c == Component::Beliefs ? 0 : Size;
+            std::span<const F, Size> result{s.subspan(begin, Size)};
+            return result;
+        }
+    }
+
     [[nodiscard]] constexpr bool verifySelf() const {
         bool in_range{std::ranges::all_of(beliefsAndApriories.get(), is_between_zero_and_one_inclusive<F>)};
+        if(!in_range)
+            return false;
 
         auto beliefs{getBeliefs()};
         F belief_sum{std::accumulate(std::begin(beliefs), std::end(beliefs), 0.0)};
+        if(!is_approx_one(belief_sum + uncertainty))
+            return false;
 
         auto apriories{getApriories()};
         F apriories_sum{std::accumulate(std::begin(apriories), std::end(apriories), 0.0)};
-
-        return in_range && is_approx_one(belief_sum + uncertainty) && is_approx_one(apriories_sum);
+        return is_approx_one(apriories_sum);
     }
 
-    [[nodiscard]] static inline constexpr std::size_t double_size(std::size_t size) {
-        return size == std::dynamic_extent ? std::dynamic_extent : 2 * size;
-    }
+    static inline constexpr std::size_t DoubleSize
+            = Size == std::dynamic_extent ? std::dynamic_extent : 2 * Size;
 
-    static inline constexpr std::size_t Double = double_size(Size);
-
-    FlexArray<F, Double> beliefsAndApriories;
+    FlexArray<F, DoubleSize> beliefsAndApriories;
     F uncertainty;
 };
+
+template<plain_floating_point F, std::size_t Size>
+constexpr std::ostream& operator<<(std::ostream &os, const MultinomialOpinion<F, Size>& opinion) {
+
+    auto printSpan {
+            [&os](std::span<F, Size> s){
+                auto printElement {[&os](F x) { os << x << ", "; }};
+                os << "[";
+                std::for_each_n(std::begin(s), s.size() - 1, printElement);
+                return (os << s.last() << "]");
+            }
+    };
+
+    return (os << "MultinomialOpinion{size: " << opinion.size()
+               << ", isDynamicSized: " << opinion.is_dynamic_sized()
+               << ", beliefs: " << printSpan(opinion.getBeliefs())
+               << ", uncertainty: " << opinion.getUncertainty()
+               << ", apriories: " << printSpan(opinion.getApriories())
+               << "}");
+}
 
 std::array a {0.5, 0.5};
 MultinomialOpinion<double, 2> m {std::ranges::ref_view(a), 0.0, std::ranges::ref_view(a)};
