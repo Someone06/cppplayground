@@ -57,10 +57,10 @@ private:
 
 template<plain_floating_point F>
 constexpr std::ostream &operator<<(std::ostream &os, const BinomialOpinion<F>& opinion) {
-    return (os << "BinomialOpinion{belief: " << opinion.belief
-               << ", disbelief: " << opinion.disbelief
-               << ", uncertainty: " << opinion.uncertainty
-               << ", apriori: " << opinion.apriori << "}");
+    return (os << "BinomialOpinion{belief: " << opinion.getBelief()
+               << ", disbelief: " << opinion.getDisbelief()
+               << ", uncertainty: " << opinion.getUncertainty()
+               << ", apriori: " << opinion.getApriori() << "}");
 }
 
 
