@@ -1,11 +1,10 @@
-#include <array>
-#include<ranges>
-#include <span>
+#include <functional>
 #include <stdexcept>
 
 #include <gmock/gmock.h>
 
-#include "../src/SubjectiveLogic.h"
+#include "../src/floatingPointHelper.h"
+#include "../src/BinomialOpinion.h"
 
 template<plain_floating_point F>
 void testBinomialOpinionThrows(F belief, F disbelief, F uncertainty, F apriori) {
