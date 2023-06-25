@@ -13,16 +13,16 @@ public:
     [[nodiscard]] explicit constexpr FlexArray() = default;
     FlexArray(const FlexArray&) = delete;
     FlexArray& operator=(const FlexArray&) = delete;
-    constexpr FlexArray(FlexArray&&) = default;
-    constexpr FlexArray& operator=(FlexArray&&) = default;
-    ~FlexArray() = default;
+    constexpr FlexArray(FlexArray&&) noexcept = default;
+    constexpr FlexArray& operator=(FlexArray&&) noexcept = default;
+    ~FlexArray() noexcept = default;
 
 
-    [[nodiscard]] constexpr std::span<const T, N> get() const {
+    [[nodiscard]] constexpr std::span<const T, N> get() const noexcept {
         return std::span(a);
     }
 
-    [[nodiscard]] constexpr std::span<T, N> getMut() {
+    [[nodiscard]] constexpr std::span<T, N> getMut() noexcept {
         return std::span(a);
     }
 
@@ -36,15 +36,15 @@ public:
     [[nodiscard]] explicit constexpr FlexArray(std::size_t size) : ptr{new T[size]}, size{size} {}
     FlexArray(const FlexArray&) = delete;
     FlexArray& operator=(const FlexArray&) = delete;
-    constexpr FlexArray(FlexArray&&) = default;
-    constexpr FlexArray& operator=(FlexArray&&) = default;
-    ~FlexArray() = default;
+    constexpr FlexArray(FlexArray&&) noexcept = default;
+    constexpr FlexArray& operator=(FlexArray&&) noexcept = default;
+    ~FlexArray() noexcept = default;
 
-    [[nodiscard]] constexpr std::span<const T, std::dynamic_extent> get() const {
+    [[nodiscard]] constexpr std::span<const T, std::dynamic_extent> get() const noexcept {
         return std::span(ptr.get(), size);
     }
 
-    [[nodiscard]] constexpr std::span<T, std::dynamic_extent> getMut() {
+    [[nodiscard]] constexpr std::span<T, std::dynamic_extent> getMut() noexcept {
         return std::span(ptr.get(), size);
     }
 

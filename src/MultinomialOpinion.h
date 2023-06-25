@@ -10,7 +10,6 @@
 #include <span>
 #include <stdexcept>
 
-#include "rangeHelper.h"
 #include "floatingPointHelper.h"
 #include "FlexArray.h"
 
@@ -35,23 +34,23 @@ public:
             throw std::invalid_argument("Invariant for multinomial opinion does not hold.");
     }
 
-    [[nodiscard]] constexpr std::span<const F, Size>  getBeliefs() const {
+    [[nodiscard]] constexpr std::span<const F, Size>  getBeliefs() const noexcept {
         return getComponent<Component::Beliefs>();
     }
 
-    [[nodiscard]] constexpr std::span<const F, Size>  getApriories() const {
+    [[nodiscard]] constexpr std::span<const F, Size>  getApriories() const noexcept {
         return getComponent<Component::Apriories>();
     }
 
-    [[nodiscard]] constexpr F getUncertainty() const {
+    [[nodiscard]] constexpr F getUncertainty() const noexcept {
         return uncertainty;
     }
 
-    [[nodiscard]] inline constexpr bool is_dynamic_sized() const {
+    [[nodiscard]] inline constexpr bool is_dynamic_sized() const noexcept {
         return Size == std::dynamic_extent;
     }
 
-    [[nodiscard]] inline constexpr std::size_t size() const {
+    [[nodiscard]] inline constexpr std::size_t size() const noexcept {
         if constexpr (is_dynamic_sized()) {
             return beliefsAndApriories.get().size() / 2;
         } else {
@@ -63,7 +62,7 @@ private:
     enum class Component {Beliefs, Apriories};
 
     template<Component c>
-    [[nodiscard]] inline constexpr std::span<const F, Size> getComponent() const {
+    [[nodiscard]] inline constexpr std::span<const F, Size> getComponent() const noexcept {
         if constexpr (Size == std::dynamic_extent) {
             std::span<const F, std::dynamic_extent> s {beliefsAndApriories.get()};
             std::size_t sz {s.size() / 2};
@@ -77,7 +76,7 @@ private:
         }
     }
 
-    [[nodiscard]] constexpr bool verifySelf() const {
+    [[nodiscard]] constexpr bool verifySelf() const noexcept {
         bool in_range{std::ranges::all_of(beliefsAndApriories.get(), is_between_zero_and_one_inclusive<F>)};
         if(!in_range)
             return false;
