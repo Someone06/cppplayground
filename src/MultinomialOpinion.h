@@ -17,18 +17,21 @@ template<plain_floating_point F, std::size_t Size>
 requires (Size >= 2)
 class MultinomialOpinion final {
 public:
-    template<std::ranges::input_range R>
-        requires std::ranges::view<R> && std::ranges::sized_range<R> && std::same_as<std::ranges::range_value_t<R>, F>
-    [[nodiscard]] constexpr MultinomialOpinion(const R beliefs, F uncertainty, const R apriories) : beliefsAndApriories{make_FlexArray<F, DoubleSize>(std::ranges::size(beliefs) * 2)}, uncertainty{uncertainty}  {
+    template<std::ranges::input_range R1, std::ranges::input_range R2>
+        requires std::ranges::view<R1> && std::ranges::sized_range<R1> && std::same_as<std::remove_cv_t<std::ranges::range_value_t<R1>>, F>
+              && std::ranges::view<R2> && std::ranges::sized_range<R2> && std::same_as<std::remove_cv_t<std::ranges::range_value_t<R2>>, F>
+    [[nodiscard]] constexpr MultinomialOpinion(const R1 beliefs, F uncertainty, const R2 apriories)
+            : beliefsAndApriories{make_FlexArray<F, ArraySize>(std::ranges::size(beliefs) * 2)},
+              uncertainty{uncertainty}  {
         if (std::ranges::size(beliefs) != std::ranges::size(apriories))
             throw std::invalid_argument("Number of beliefs and number of apriories must be equal.");
 
         if (Size == std::dynamic_extent && std::ranges::size(beliefs) < 2)
             throw std::invalid_argument("Require a size of at least 2.");
 
-        std::array combined{std::move(beliefs), std::move(apriories)};
-        std::ranges::copy(std::ranges::ref_view(combined) | std::views::join,
-                          std::begin(beliefsAndApriories.getMut()));
+        auto buffer {beliefsAndApriories.getMut()};
+        std::ranges::copy(beliefs, std::begin(buffer));
+        std::ranges::copy(apriories, std::next(std::begin(buffer), std::ranges::size(beliefs)));
 
         if (!verifySelf())
             throw std::invalid_argument("Invariant for multinomial opinion does not hold.");
@@ -90,13 +93,16 @@ private:
 
         auto apriories{getApriories()};
         F apriories_sum{std::accumulate(std::begin(apriories), std::end(apriories), 0.0)};
-        return is_approx_one(apriories_sum);
+        if(!is_approx_one(apriories_sum))
+            return false;
+
+        return true;
     }
 
-    static inline constexpr std::size_t DoubleSize
+    static inline constexpr std::size_t ArraySize
             = Size == std::dynamic_extent ? std::dynamic_extent : 2 * Size;
 
-    FlexArray<F, DoubleSize> beliefsAndApriories;
+    FlexArray<F, ArraySize> beliefsAndApriories;
     F uncertainty;
 };
 
