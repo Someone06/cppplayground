@@ -77,7 +77,9 @@ private:
     }
 
     [[nodiscard]] constexpr bool verifySelf() const noexcept {
-        bool in_range{std::ranges::all_of(beliefsAndApriories.get(), is_between_zero_and_one_inclusive<F>)};
+        bool in_range{is_between_zero_and_one_inclusive(uncertainty)
+                && std::ranges::all_of(beliefsAndApriories.get(),
+                                       is_between_zero_and_one_inclusive<F>)};
         if(!in_range)
             return false;
 
