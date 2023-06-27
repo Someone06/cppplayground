@@ -18,6 +18,7 @@ enable_testing()
 add_executable(
       tests
       test/binomialOpinionTest.cpp
+      test/multinomialOpinionTest.cpp
 )
 target_link_libraries(
         tests
