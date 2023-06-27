@@ -26,8 +26,9 @@ public:
         if (std::ranges::size(beliefs) != std::ranges::size(apriories))
             throw std::invalid_argument("Number of beliefs and number of apriories must be equal.");
 
-        if (Size == std::dynamic_extent && std::ranges::size(beliefs) < 2)
-            throw std::invalid_argument("Require a size of at least 2.");
+        if constexpr (Size == std::dynamic_extent)
+            if(std::ranges::size(beliefs) < 2)
+                throw std::invalid_argument("Require a size of at least 2.");
 
         auto buffer {beliefsAndApriories.getMut()};
         std::ranges::copy(beliefs, std::begin(buffer));
