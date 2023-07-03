@@ -90,27 +90,7 @@ TEST(CreateMultinomialOpinion, OnlyOneEvent) {
     testBinomialOpinionThrows<double, std::dynamic_extent, 1, 1>(beliefs, 0.2, apriories);
 }
 
-template<plain_floating_point F, std::size_t N, std::size_t S, std::size_t T>
-void testBinomialOpinionSuccess(std::span<const F, S> beliefs, F uncertainty, std::span<const F, T> apriories) {
-    EXPECT_NO_THROW(
-            std::invoke(
-                    [=]() { MultinomialOpinion<F, N> multinomialOpinion{beliefs, uncertainty, apriories }; }
-                    )
-    );
-}
-
-template<plain_floating_point F, std::size_t N, std::size_t S, std::size_t T>
-void testBinomialOpinionDifferentLengthSuccess(const std::array<F, S>& beliefs, F uncertainty, const std::array<F, T>& apriories) {
-    testBinomialOpinionSuccess<F, N, S, T>(std::span(beliefs), uncertainty, std::span(apriories));
-    testBinomialOpinionSuccess<F, std::dynamic_extent, S, T>(std::span(beliefs), uncertainty, std::span(apriories));
-}
-
-template<plain_floating_point F, std::size_t N>
-void testBinomialOpinionSuccess(const std::array<F, N>& beliefs, F uncertainty, const std::array<F, N>& apriories) {
-    testBinomialOpinionDifferentLengthThrows<F, N, N, N>(beliefs, uncertainty, apriories);
-}
-
-TEST(CreateMultinomialOpinion, BeliefsAndAprioriesDifferntTypes) {
+TEST(CreateMultinomialOpinion, BeliefsAndAprioriesDifferntTypesSuccess) {
     std::array beliefs {0.7, 0.1};
     std::vector apriories {0.2, 0.8};
 
@@ -125,4 +105,38 @@ TEST(CreateMultinomialOpinion, BeliefsAndAprioriesDifferntTypes) {
                     [=]() { MultinomialOpinion<double, std::dynamic_extent> multinomialOpinion{std::span(beliefs), 0.2, std::ranges::ref_view(apriories) }; }
                     )
     );
+}
+
+template<plain_floating_point F, std::size_t N, std::size_t M>
+void testBinomialOpinionSuccess(std::span<const F, M> beliefs, F uncertainty, std::span<const F, M> apriories) {
+    EXPECT_NO_THROW(
+            std::invoke(
+                    [=]() { MultinomialOpinion<F, N> multinomialOpinion{beliefs, uncertainty, apriories }; }
+                    )
+    );
+
+    MultinomialOpinion<F, N> multinomialOpinion {beliefs, uncertainty, apriories };
+    EXPECT_TRUE(std::ranges::equal(beliefs, multinomialOpinion.getBeliefs()));
+    EXPECT_EQ(uncertainty, multinomialOpinion.getUncertainty());
+    EXPECT_TRUE(std::ranges::equal(apriories, multinomialOpinion.getApriories()));
+    EXPECT_EQ(beliefs.size(), multinomialOpinion.size());
+    EXPECT_EQ(N == std::dynamic_extent, multinomialOpinion.is_dynamic_sized());
+}
+
+template<plain_floating_point F, std::size_t N>
+void testBinomialOpinionSuccess(const std::array<F, N>& beliefs, F uncertainty, const std::array<F, N>& apriories) {
+    testBinomialOpinionSuccess<F, N, N>(std::span(beliefs), uncertainty, std::span(apriories));
+    testBinomialOpinionSuccess<F, std::dynamic_extent, N>(std::span(beliefs), uncertainty, std::span(apriories));
+}
+
+TEST(CreateMultinomialOpinion, NoUncertainty) {
+    std::array beliefs {0.1, 0.2, 0.3, 0.4};
+    std::array apriories {0.1, 0.1, 0.7, 0.1};
+    testBinomialOpinionSuccess(beliefs, 0.0, apriories);
+}
+
+TEST(CreateMultinomialOpinion, FullUncertinaty) {
+    std::array beliefs {0.0, 0.0};
+    std::array apriories {0.6, 0.4};
+    testBinomialOpinionSuccess(beliefs, 1.0, apriories);
 }
