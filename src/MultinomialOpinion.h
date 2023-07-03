@@ -55,7 +55,7 @@ public:
     }
 
     [[nodiscard]] inline constexpr std::size_t size() const noexcept {
-        if constexpr (is_dynamic_sized()) {
+        if constexpr (Size == std::dynamic_extent) {
             return beliefsAndApriories.get().size() / 2;
         } else {
             return Size;
