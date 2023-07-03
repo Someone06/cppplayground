@@ -1,7 +1,7 @@
 #include<ranges>
 #include<string_view>
 
-#include "src/ExitCode.h"
+#include "ExitCode.h"
 
 template<std::ranges::random_access_range R>
     requires std::same_as<std::ranges::range_value_t<R>, std::string_view>
