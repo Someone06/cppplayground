@@ -1,4 +1,25 @@
+#include <algorithm>
+#include <concepts>
+#include <cstddef>
 #include <iostream>
+#include <limits>
+#include <utility>
+
+/*
+ * Generates the coordinates needed to traverse an 2D array diagonally.
+ * Width and height of the array do not need to be equal.
+ * Assume the coordinate `(0, 0)` are in the top left and the coordinates
+ * `(width - 1, height - 1)` in the bottom right.
+ * Then the diagonals are traversed from to top left to bottom right, where each
+ * diagonal is traversed from top right to bottom left.
+ * A 3 by 4 array would be traversed in the following order:
+ * ```
+ * 0  1  3
+ * 2  4  6
+ * 5  7  9
+ * 8 10 11
+ * ```
+ */
 
 struct Point final {
     constexpr Point(std::size_t row, std::size_t col) noexcept
@@ -20,7 +41,8 @@ iter_diag_upper_halve_top_right_to_bottom_left_left_to_right(
         std::size_t width, std::size_t height, Consumer consumer
 ) noexcept(noexcept(std::declval<Consumer>()(std::declval<Point>()))) {
     for (std::size_t col = 0; col < width; ++col) {
-        for (std::size_t row = 0; row < std::min(height, col + 1); ++row) {
+        const std::size_t bound {std::min(height, col + 1)};
+        for (std::size_t row = 0; row < bound; ++row) {
             consumer(Point(row, col - row));
         }
     }
@@ -35,11 +57,13 @@ iter_diag_upper_halve_top_right_to_bottom_left_right_to_left(
 ) noexcept(noexcept(std::declval<Consumer>()(std::declval<Point>()))) {
     const std::size_t max{std::numeric_limits<std::size_t>::max()};
     for (std::size_t col = width - 2; col != max; --col) {
-        for (std::size_t row = 0; row < std::min(height, col + 1); ++row) {
+        const std::size_t bound {std::min(height, col + 1)};
+        for (std::size_t row = 0; row < bound; ++row) {
             consumer(Point(row, col - row));
         }
-    }
 }
+}
+
 template<typename Consumer>
     requires std::invocable<Consumer, Point>
             && std::same_as<std::invoke_result_t<Consumer, Point>, void>
@@ -61,12 +85,14 @@ constexpr void iterate_diagonal(
             height, width, translate);
 }
 
+void print_traversed_coordinates(std::size_t width, std::size_t height) {
+    auto printPoint {[](Point p) {std::cout << p << '\n';}};
+    iterate_diagonal(width, height, printPoint);
+}
 
 int main(const int argc, char const *const *const argv) {
-    auto printPoint {[](Point p) {std::cout << p << '\n';}};
+    std::size_t width {4};
+    std::size_t height {3};
 
-    std::size_t width{4};
-    std::size_t height{3};
-
-    iterate_diagonal(width, height, printPoint);
+    print_traversed_coordinates(width, height);
 }
