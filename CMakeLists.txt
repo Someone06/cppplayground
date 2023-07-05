@@ -6,7 +6,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fexperimental-library -stdlib=libc++")
 
 add_executable(cppplayground src/main.cpp)
-add_executable(interview src/interview.cpp)
+add_executable(diagonalTraversal src/DiagonalTraversal.cpp)
 
 
 
