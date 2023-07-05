@@ -22,7 +22,7 @@
  */
 
 struct Point final {
-    constexpr Point(std::size_t row, std::size_t col) noexcept
+    [[nodiscard]] constexpr Point(std::size_t row, std::size_t col) noexcept
         : row{row}, col{col} {}
 
     std::size_t row;
@@ -61,7 +61,7 @@ iter_diag_upper_halve_top_right_to_bottom_left_right_to_left(
         for (std::size_t row = 0; row < bound; ++row) {
             consumer(Point(row, col - row));
         }
-}
+    }
 }
 
 template<typename Consumer>
