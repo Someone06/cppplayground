@@ -5,8 +5,8 @@
 
 #include <gmock/gmock.h>
 
-#include "../src/floatingPointHelper.h"
-#include "../src/MultinomialOpinion.h"
+#include "../src/subjective_logic/floatingPointHelper.h"
+#include "../src/subjective_logic/MultinomialOpinion.h"
 
 template<plain_floating_point F, std::size_t N, std::size_t S, std::size_t T>
 void testBinomialOpinionThrows(std::span<const F, S> beliefs, F uncertainty, std::span<const F, T> apriories) {

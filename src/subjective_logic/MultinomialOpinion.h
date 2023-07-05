@@ -11,7 +11,7 @@
 #include <stdexcept>
 
 #include "floatingPointHelper.h"
-#include "FlexArray.h"
+#include "../FlexArray.h"
 
 template<plain_floating_point F, std::size_t Size>
 requires (Size >= 2)

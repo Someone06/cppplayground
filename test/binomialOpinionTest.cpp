@@ -3,8 +3,8 @@
 
 #include <gmock/gmock.h>
 
-#include "../src/floatingPointHelper.h"
-#include "../src/BinomialOpinion.h"
+#include "../src/subjective_logic/floatingPointHelper.h"
+#include "../src/subjective_logic/BinomialOpinion.h"
 
 template<plain_floating_point F>
 void testBinomialOpinionThrows(F belief, F disbelief, F uncertainty, F apriori) {
