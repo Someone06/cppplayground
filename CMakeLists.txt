@@ -22,7 +22,7 @@ add_executable(
       tests
       test/binomialOpinionTest.cpp
       test/multinomialOpinionTest.cpp
-)
+        src/subjective_logic/Operations.h)
 target_link_libraries(
         tests
         GTest::gmock_main
