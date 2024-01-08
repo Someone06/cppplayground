@@ -4,6 +4,8 @@
 #include<ranges>
 #include<vector>
 
+#define NDEBUG
+
 template<typename T, typename A = std::allocator<T>>
 class RawMemory final {
 public:
@@ -11,21 +13,19 @@ public:
         memory = alloc.allocate(sz);
     }
 
-    RawMemory(const RawMemory<T, A>&) = delete;
-    RawMemory& operator=(const RawMemory<T, A>&) = delete;
+    RawMemory(const RawMemory&) = delete;
+    RawMemory& operator=(const RawMemory&) = delete;
 
-    constexpr RawMemory(RawMemory<T, A>&& other) noexcept
+    constexpr RawMemory(RawMemory&& other) noexcept
         : memory {other.memory}, sz{other.sz}, alloc{std::move(other.alloc)} {
         other.memory = nullptr;
         other.sz = 0;
     }
 
-    constexpr RawMemory& operator=(RawMemory<T, A>&& other) noexcept {
-        this->memory = other.memory;
-        this->sz = other.sz;
-        this->alloc = std::move(other.alloc);
-        other.memory = nullptr;
-        other.sz = 0;
+    constexpr RawMemory& operator=(RawMemory&& other) noexcept {
+        std::swap(this->memory, other.memory);
+        std::swap(this->sz, other.sz);
+        std::swap(this->alloc, other.alloc);
         return *this;
     }
 
@@ -33,7 +33,7 @@ public:
         alloc.deallocate(memory, sz);
     }
 
-    [[nodiscard]] constexpr const std::span<T> get() const noexcept {
+    [[nodiscard]] constexpr std::span<const T> get() const noexcept {
         return std::span(memory, sz);
     }
 
@@ -72,30 +72,40 @@ template<typename T, template <typename > typename A = std::allocator>
 class ObjectPool final {
 public:
     [[nodiscard]] explicit constexpr ObjectPool(std::size_t size) : values{size}, freeList{size}, free{size} {
-        for(auto [value, ptr] : std::views::zip(values.get(), freeList.getMut())) {
+        for(auto [value, ptr] : std::views::zip(values.getMut(), freeList.getMut())) {
             ptr = &value;
         }
     }
 
-    ObjectPool(const ObjectPool<T>&) = delete;
-    ObjectPool& operator=(const ObjectPool<T>&) = delete;
+    ObjectPool(const ObjectPool&) = delete;
+    ObjectPool& operator=(const ObjectPool&) = delete;
 
-    constexpr ObjectPool(ObjectPool<T>&& other) noexcept
+    constexpr ObjectPool(ObjectPool&& other) noexcept
         : values{std::move(other.values)}, freeList{std::move(other.freeList)}, free{other.free} {
          other.free = other.size();
     };
 
-   constexpr ObjectPool& operator=(ObjectPool<T>&& other) noexcept {
-         this->values = std::move(other.values);
-         this->freeList = std::move(other.freeList);
-         this->free = other.free;
-         other.free = other.size();
+   constexpr ObjectPool& operator=(ObjectPool&& other) noexcept {
+         std::swap(this->values, other.values);
+         std::swap(this->freeList, other.freeList);
+         std::swap(this->free, other.free);
         return *this;
     }
 
     constexpr ~ObjectPool() noexcept {
+        /*
+         * The complexity of this function is O(freeValues*log(freeValues))
+         * where freeValues is the number of non-claimed values because of the
+         * sorting step in case freeValues > 0. In general, all values should be
+         * re-claimed before the pool is destructed, but the time complexity of
+         * the destruction should still depend on the number of not re-claimed
+         * aka still used values, not on the number of free ones.
+         * This can be archived by memorizing all values that are in use, e.g.
+         * by using a bitset.
+         */
+
         if(free == size()) {
-            // If no objects are claimed, then there are no objects to destroy.
+            // There are no objects to destroy if no objects are in use.
             return;
         }
 
@@ -103,8 +113,8 @@ public:
        auto remainder {freeList.getMut().subspan(free)};
        std::ranges::sort(freeValues);
 
-       auto getAddress {[](auto& val) {return &val;}};
-       std::ranges::set_difference(values.get() | std::views::transform(getAddress), freeValues, std::ranges::begin(remainder));
+       auto getAddress {[](auto& val) {return std::addressof(val);}};
+       std::ranges::set_difference(values.getMut() | std::views::transform(getAddress), freeValues, std::ranges::begin(remainder));
        for(T const * ptr : remainder) {
             std::destroy_at(ptr);
        }
@@ -189,6 +199,10 @@ int main(){
     int& a {pool.claim()};
     ObjectPool<int> other{std::move(pool)};
     other.reclaim(a);
+    x = other.claim();
+    y = other.claim();
 
+    pool = ObjectPool<int>{1};
     pool = std::move(other);
+    pool = ObjectPool<int>{0};
 }
