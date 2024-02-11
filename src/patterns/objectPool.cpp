@@ -77,58 +77,35 @@ private:
     A alloc;
 };
 
+template<typename T>
+struct Entry final {
+    using Inner = union {T value; Entry<T>* next;};
+    Inner inner;
+
+    [[nodiscard]] constexpr T* getValue() noexcept {
+        return &inner.value;
+    }
+
+    [[nodiscard]] constexpr Entry<T>*& getNextPtr() noexcept {
+        return inner.next;
+    }
+};
+
 
 template<typename T, template<typename> typename A = std::allocator>
 class ObjectPool final {
 public:
     [[nodiscard]] explicit constexpr ObjectPool(std::size_t size)
-        : values{size}, freeList{size}, free{size} {
-        for (auto [value, ptr]: std::views::zip(values.getMut(), freeList.getMut())) {
-            ptr = &value;
-        }
-    }
-
-    ObjectPool(const ObjectPool &) = delete;
-    ObjectPool &operator=(const ObjectPool &) = delete;
-
-    [[nodiscard]] constexpr ObjectPool(ObjectPool &&other) noexcept
-        : values{std::move(other.values)}, freeList{std::move(other.freeList)}, free{other.free} {
-        other.free = other.size();
-    };
-
-    constexpr ObjectPool &operator=(ObjectPool &&other) noexcept {
-        std::swap(this->values, other.values);
-        std::swap(this->freeList, other.freeList);
-        std::swap(this->free, other.free);
-        return *this;
-    }
-
-    constexpr ~ObjectPool() noexcept {
-        /*
-         * The complexity of this function is O(freeValues*log(freeValues))
-         * where freeValues is the number of non-claimed values because of the
-         * sorting step in case freeValues > 0. In general, all values should be
-         * re-claimed before the pool is destructed, but the time complexity of
-         * the destruction should still depend on the number of not re-claimed
-         * aka still used values, not on the number of free ones.
-         * This can be archived by memorizing all values that are in use, e.g.
-         * by using a bitset.
-         */
-
-        if (usedCount() == 0) {
+        : values{size}, head{size != 0 ? &values.at(0) : nullptr}, free{size} {
+        if(values.size() == 0) {
             return;
         }
 
-        auto freeValues{freeList.getMut().subspan(0, free)};
-        auto remainder{freeList.getMut().subspan(free)};
-        std::ranges::sort(freeValues);
+       for(std::size_t i = 1; i < free; ++i) {
+            values.at(i - 1).getNextPtr() = &values.at(i);
+       }
 
-        auto getAddress{[](auto &val) { return std::addressof(val); }};
-        auto addresses{values.getMut() | std::views::transform(getAddress)};
-        std::ranges::set_difference(addresses, freeValues, std::ranges::begin(remainder));
-        for (T const *ptr: remainder) {
-            std::destroy_at(ptr);
-        }
+       values.at(free - 1).getNextPtr() = nullptr;
     }
 
     [[nodiscard]] constexpr std::size_t size() const noexcept {
@@ -149,8 +126,10 @@ public:
             throw std::runtime_error("No free objects available.");
         }
 
-        T *value{freeList.at(free - 1)};
+        T *value = head->getValue();
+        Entry<T>* next = head->getNextPtr();
         new (value) T{std::forward(args)...};
+        head = next;
         --free;
         return *value;
     }
@@ -160,18 +139,20 @@ public:
             throw std::logic_error("Cannot reclaim a value if no value is in use.");
         }
 
-        if (!values.containsWithinMemoryRange(value)) {
-            throw std::logic_error("Cannot reclaim a value that is allocated outside the pool.");
-        }
+        //if (!values.containsWithinMemoryRange(value)) {
+        //    throw std::logic_error("Cannot reclaim a value that is allocated outside the pool.");
+        //}
 
         std::destroy_at(&value);
-        freeList.at(free) = &value;
+        auto* entry = reinterpret_cast<Entry<T>*>(&value);
+        entry->getNextPtr() = head;
+        head = entry;
         ++free;
     }
 
 private:
-    RawMemory<T, A<T>> values;
-    RawMemory<T *, A<T *>> freeList;
+    RawMemory<Entry<T>, A<Entry<T>>> values;
+    Entry<T>* head;
     std::size_t free;
 };
 
